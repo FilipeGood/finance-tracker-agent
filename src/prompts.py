@@ -126,6 +126,12 @@ openai_functions_agent_prompt = ChatPromptTemplate.from_messages(
 **Critical Decision Rules:**
 - If the user mentions: "fix", "correct", "change", "update", "last expense", "recent expense", "previous expense" + category changes → Use update_last_expense_categories_tool
 - If the user is reporting a new expense → Use save_expense_tool
+- For reports you have the following methods:
+  - get_spendings_by_year_and_month
+  - get_spendings_by_category_for_specific_month
+  - get_spendings_by_main_and_subcategory_for_specific_month
+  - get_spendings_by_account_for_specific_month
+- When the user asks for a specific report (ex. by category) use the specific tool. If the user asks for full report, use multiple tools and then aggregate the findings to provide the most information as possible
 
 **Important Guidelines:**
 - When saving expenses, ALWAYS return the EXACT detailed output from the save_expense_tool as your final response

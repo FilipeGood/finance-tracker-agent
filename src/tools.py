@@ -31,6 +31,15 @@ def get_current_date_tool() -> str:
 
 
 @tool
+def get_allowed_categories() -> dict[str, list[str]]:
+    """Get allowed categories for expenses."""
+    return {
+        "main_categories": [category.value for category in MainCategory],
+        "sub_categories": [category.value for category in SubCategory],
+    }
+
+
+@tool
 def get_current_month_tool() -> str:
     """Get the current month in YYYY-MM format."""
     return datetime.now().strftime("%Y-%m")
@@ -47,6 +56,23 @@ def get_all_expenses() -> str:
 
     # Convert DataFrame to JSON string
     expenses_json = df.to_json(orient="records", date_format="iso")
+    return json.dumps(json.loads(expenses_json), indent=2)
+
+
+@tool
+def get_monthly_expenses(month: int):
+    """Get expenses for a specific month."""
+    if not os.path.exists(CSV_PATH) or os.path.getsize(CSV_PATH) == 0:
+        return "No expenses found."
+
+    df = pd.read_csv(CSV_PATH)
+
+    monthly_expenses = df[df["month"] == month]
+
+    if monthly_expenses.empty:
+        return f"No expenses found for month {month}."
+
+    expenses_json = monthly_expenses.to_json(orient="records", date_format="iso")
     return json.dumps(json.loads(expenses_json), indent=2)
 
 
@@ -116,6 +142,8 @@ def update_last_expense_attribute(attribute: str, value: str | float) -> str:
     # Update the specified attribute
     if attribute in df.columns:
         df.at[df.index[-1], attribute] = value
+
+        last_expense = df.iloc[-1].copy()
         df.to_csv(CSV_PATH, index=False)
 
         return (
@@ -148,10 +176,11 @@ def get_spendings_by_year_and_month() -> pd.DataFrame:
     """
     df = pd.read_csv(CSV_PATH)
 
+    df["month_number"] = df["month"].astype(int)
+    df["month"] = pd.to_datetime(df["month_number"], format="%m").dt.strftime("%B")
     df["date"] = pd.to_datetime(
         df["year"].astype(str) + " " + df["month"], format="%Y %B"
     )
-    df["month_number"] = df["date"].dt.month
 
     ### 1. Spending by Year and Month
     by_year_month_df = (
@@ -187,6 +216,7 @@ def _spendings_for_month(year: int, month: int, group_cols: list[str]) -> pd.Dat
         )
 
     # Build date for filtering (assuming month column stores full month name e.g. 'August')
+    df["month"] = pd.to_datetime(df["month"], format="%m").dt.strftime("%B")
     df["date"] = pd.to_datetime(
         df["year"].astype(str) + " " + df["month"], format="%Y %B", errors="coerce"
     )
