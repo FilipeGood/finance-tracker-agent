@@ -2,19 +2,43 @@
 Terminal Interface Module
 
 This module contains the TerminalInterface class that handles user interaction
-for the personal finance tracker through a command-line interface.
+for the personal finance tracker through a command-line interface. Part of the
+unified application architecture, this interface provides rich terminal output
+with color support, graceful error handling, and comprehensive user guidance.
+
+Features:
+    - Rich terminal UI with ANSI color support
+    - Comprehensive help and command guidance
+    - Graceful keyboard interrupt handling
+    - Shared error handling with other interfaces
+    - Production-ready signal handling
 """
 
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
+
+from .error_handler import AgentErrorHandler
+from .feedback import MessageFormatter, WelcomeMessages
+
+if TYPE_CHECKING:
+    from .agent import FinanceAgent
 
 
 class TerminalInterface:
     """
-    Terminal interface for the Finance Agent.
+    Terminal interface for the Finance Agent in the unified application architecture.
 
-    Provides a clean command-line interface for users to interact with the
+    Provides a rich command-line interface for users to interact with the
     finance tracking agent through natural language input and formatted output.
+    Integrates with the shared agent initialization and error handling patterns
+    established in the unified main entry point.
+
+    Features:
+        - ANSI color support with fallback for non-color terminals
+        - Comprehensive help system and command guidance
+        - Graceful handling of user interrupts and exit commands
+        - Integration with shared error handling and message formatting
+        - Production-ready signal and exception handling
     """
 
     def __init__(self, use_colors: bool = True):
@@ -65,72 +89,32 @@ class TerminalInterface:
         Shows the application header, available functionality, and example commands
         to help users get started with the finance tracker.
         """
-        welcome_text = f"""
-            {self._bold(self._blue("=" * 60))}
-            {self._bold(self._blue("           Personal Finance Tracker Agent"))}
-            {self._bold(self._blue("=" * 60))}
+        # Use shared welcome message with terminal-specific formatting
+        welcome_lines = WelcomeMessages.TERMINAL_WELCOME.strip().split("\n")
 
-            {self._green("Welcome!")} I'm your personal finance assistant. I can help you:
-
-            {self._yellow("📊 Track Expenses:")}
-            • Add new expenses with natural language
-            • Update or correct recent expenses
-            • Categorize spending automatically
-
-            {self._yellow("📈 Generate Reports:")}
-            • View spending by category, time period, or account
-            • Analyze spending patterns and trends
-            • Get financial insights and summaries
-
-            {self._yellow("💡 Example Commands:")}
-            • "Add new expense in a restaurant 56 euros today"
-            • "I bought groceries for 45 euros yesterday"
-            • "Give me my spendings for the last week"
-            • "Show spending by category for this month"
-            • "Update the last expense to be Entertainment/Movies"
-
-            {self._yellow("🔧 Available Commands:")}
-            • {self._green("help")} or {self._green("?")} - Show this help message
-            • {self._green("quit")} or {self._green("exit")} - Exit the application
-
-            {self._blue("Type your request in natural language and press Enter to begin!")}
-            {self._bold(self._blue("-" * 60))}
+        # Add header with colored formatting
+        header = f"""
+{self._bold(self._blue("=" * 70))}
+{self._bold(self._blue("        Personal Finance Tracker Agent"))}
+{self._bold(self._blue("=" * 70))}
         """
-        print(welcome_text)
+        print(header)
+
+        # Print the shared welcome message
+        for line in welcome_lines:
+            print(line)
+
+        print(f"{self._bold(self._blue('-' * 70))}")
 
     def display_help(self) -> None:
         """
         Display help information for available commands and functionality.
         """
-        help_text = f"""
-            {self._bold(self._yellow("Finance Tracker Help"))}
-            {self._yellow("=" * 25)}
+        # Use shared help message with terminal-specific formatting
+        help_lines = WelcomeMessages.TERMINAL_HELP.strip().split("\n")
 
-            {self._green("Expense Management:")}
-            • Add expenses: "Save a $15 coffee expense"
-            • Update categories: "Change the last expense to Food/Restaurant"
-            • Add notes: "Record dinner for $25 with friends"
-
-            {self._green("Reporting & Analysis:")}
-            • Monthly reports: "Show my spending for January 2025"
-            • Category breakdowns: "Get spending by category this month"
-            • Account summaries: "Show spending from my Food Account"
-            • Time-based analysis: "Analyze my spending patterns"
-
-            {self._green("Categories Available:")}
-            • Food, Transportation, Entertainment, Health, Shopping, 
-                Bills, Education, Travel, Personal Care, Other
-
-            {self._green("Accounts:")}
-            • Main Account (default), Food Account, or specify your own
-
-            {self._green("Commands:")}
-            • {self._yellow("help")} - Show this help
-            • {self._yellow("quit")} or {self._yellow("exit")} - Exit application
-
-            {self._blue("💡 Tip: Use natural language! The agent understands context and can infer missing details.")}
-            """
-        print(help_text)
+        for line in help_lines:
+            print(line)
 
     def get_user_input(self) -> Optional[str]:
         """
@@ -183,7 +167,7 @@ class TerminalInterface:
             )
             return None
 
-    def display_response(self, response: Dict[str, Any]) -> None:
+    def display_response(self, response: Dict[str, Any], verbose: bool = False) -> None:
         """
         Format and display the agent's response.
 
@@ -192,25 +176,26 @@ class TerminalInterface:
                      - success: Boolean indicating execution success
                      - output: Agent's response message
                      - error: Error details if execution failed
+            verbose: Whether to show technical details for debugging
 
         Formats the response with appropriate colors and icons based on success status.
         """
         print(f"\n{self._blue('🤖')} {self._bold('Finance Agent:')}")
 
-        if response.get("success", False):
-            # Successful response
-            output = response.get("output", "No response received")
+        # Use shared error handler to process response
+        output, is_success, error = AgentErrorHandler.process_agent_response(response)
+
+        if is_success:
             print(f"{self._green('✅')} {output}")
         else:
-            # Error response
-            output = response.get("output", "An error occurred")
-            error = response.get("error")
-
             print(f"{self._red('❌')} {output}")
 
-            # Show detailed error in verbose mode or if it's a critical error
-            if error and "API" in str(error):
-                print(f"{self._red('🔧')} {self._yellow('Technical details:')} {error}")
+            # Show technical details if appropriate
+            if AgentErrorHandler.should_show_technical_details(error, verbose):
+                formatted_error = AgentErrorHandler.format_error_details(error)
+                print(
+                    f"{self._red('🔧')} {self._yellow('Technical details:')} {formatted_error}"
+                )
 
     def display_goodbye(self) -> None:
         """
@@ -233,7 +218,8 @@ class TerminalInterface:
         Args:
             error_message: The error message to display
         """
-        print(f"\n{self._red('❌ Error:')} {error_message}")
+        formatted_message = MessageFormatter.error_message(error_message)
+        print(f"\n{formatted_message}")
 
     def display_info(self, info_message: str) -> None:
         """
@@ -242,4 +228,75 @@ class TerminalInterface:
         Args:
             info_message: The informational message to display
         """
-        print(f"\n{self._blue('ℹ️')} {info_message}")
+        formatted_message = MessageFormatter.info_message(info_message)
+        print(f"\n{formatted_message}")
+
+    def run(self, agent: "FinanceAgent", verbose: bool = False) -> None:
+        """
+        Run the terminal interface main loop.
+
+        Args:
+            agent: The FinanceAgent instance to use for processing requests
+            verbose: Whether verbose mode is enabled (used for error reporting)
+
+        Handles the complete terminal interaction flow including:
+        - Welcome display
+        - User input loop
+        - Agent request processing
+        - Error handling and graceful shutdown
+        """
+        # Display welcome message
+        self.display_welcome()
+
+        try:
+            # Main application loop
+            while True:
+                # Get user input (handles help and exit commands internally)
+                user_input = self.get_user_input()
+
+                # Check for exit condition
+                if user_input is None:
+                    break
+
+                # Skip empty input (shouldn't happen due to validation in get_user_input)
+                if not user_input.strip():
+                    continue
+
+                # Process request through agent
+                try:
+                    response = agent.execute_request(user_input)
+                    self.display_response(response, verbose)
+                except KeyboardInterrupt:
+                    # Handle Ctrl+C during agent processing
+                    interrupt_msg = AgentErrorHandler.handle_keyboard_interrupt()
+                    print(
+                        f"\n{interrupt_msg} You can continue with a new request or type 'quit' to exit."
+                    )
+                    continue
+                except Exception as e:
+                    # Handle unexpected errors during agent processing
+                    error_msg = AgentErrorHandler.handle_unexpected_error(e)
+                    error_response = {
+                        "success": False,
+                        "output": error_msg,
+                        "error": str(e),
+                    }
+                    self.display_response(error_response, verbose)
+
+        except KeyboardInterrupt:
+            # Handle Ctrl+C in main loop
+            print(f"\n\n👋 Goodbye! Thanks for using the Finance Tracker.")
+
+        except Exception as e:
+            # Handle any other unexpected errors
+            formatted_error = MessageFormatter.error_message(f"Application error: {e}")
+            print(f"\n{formatted_error}")
+            print(
+                MessageFormatter.info_message(
+                    "Please restart the application and try again."
+                )
+            )
+            sys.exit(1)
+
+        # Display goodbye message for normal exit
+        self.display_goodbye()
